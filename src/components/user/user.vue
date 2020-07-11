@@ -53,8 +53,20 @@
                 @click="deleteUserInfo(scope.row.id)"
               ></el-button>
             </el-tooltip>
-            <el-tooltip class="item" effect="dark" content="设置" placement="top" :enterable="false">
-              <el-button type="warning" icon="el-icon-setting" circle size="mini"></el-button>
+            <el-tooltip
+              class="item"
+              effect="dark"
+              content="分配角色"
+              placement="top"
+              :enterable="false"
+            >
+              <el-button
+                type="warning"
+                icon="el-icon-setting"
+                circle
+                size="mini"
+                @click="distribeRoles(scope.row)"
+              ></el-button>
             </el-tooltip>
           </template>
         </el-table-column>
@@ -113,6 +125,39 @@
         <el-button type="primary" @click="editDialogClick">确 定</el-button>
       </span>
     </el-dialog>
+    <!-- 分配角色对话框 -->
+    <el-dialog
+      title="分配角色"
+      @close="clearRoledata"
+      :visible.sync="distributeRolesVisible"
+      width="50%"
+    >
+      <div>
+        <p>
+          当前的用户
+          <span>{{usersInfo.username}}</span>
+        </p>
+        <p>
+          当前的角色
+          <span>{{usersInfo.role_name}}</span>
+        </p>
+        <p>
+          分配新角色
+          <el-select v-model="selectedRoleId" placeholder="请选择">
+            <el-option
+              v-for="item in roleInfoList"
+              :key="item.id"
+              :label="item.roleName"
+              :value="item.id"
+            ></el-option>
+          </el-select>
+        </p>
+      </div>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="distributeRolesVisible = false">取 消</el-button>
+        <el-button type="primary" @click="distributeRolesMethod">确 定</el-button>
+      </span>
+    </el-dialog>
   </div>
 </template>
 
@@ -138,6 +183,7 @@ export default {
     }
 
     return {
+      distributeRolesVisible: false,
       dialogVisible: false,
       editDialogVisible: false,
       editUserdata: {},
@@ -185,7 +231,10 @@ export default {
           { min: 3, max: 30, message: '长度在 3 到 16个字符', trigger: 'blur' },
           { validator: checkMobile, trigger: 'blur' }
         ]
-      }
+      },
+      usersInfo: {},
+      roleInfoList: [],
+      selectedRoleId: ''
     }
   },
   methods: {
@@ -272,16 +321,47 @@ export default {
           type: 'info',
           message: '已取消删除'
         })
-      }else{
-        const {data:res} = await this.$http.delete('users/'+id)
-        if(res.meta.status!==200) return this.$message.error('用户删除失败')
+      } else {
+        const { data: res } = await this.$http.delete('users/' + id)
+        if (res.meta.status !== 200) return this.$message.error('用户删除失败')
+
+        this.$message({
+          type: 'success',
+          message: '删除成功!'
+        })
+        this.getUserList()
+      }
+    },
+    async distribeRoles(role) {
+      this.usersInfo = role
+      const { data: res } = await this.$http.get('roles')
+      if (res.meta.status !== 200) return this.$message.error('请求角色失败')
+      this.roleInfoList = res.data
+      this.distributeRolesVisible = true
+    },
+    async distributeRolesMethod() {
+      if (!this.selectedRoleId) {
+        return this.$message.error('请选择要分配的角色')
+      }
+     
       
-      this.$message({
-        type: 'success',
-        message: '删除成功!'
-      })
+      const { data: res } = await this.$http.put(
+        `users/${this.usersInfo.id}/role`,
+        {
+          rid: this.selectedRoleId
+        }
+      )
+      if (res.meta.status !== 200) {
+        return this.$message.error('分配角色失败')
+      }
+      this.$message.success('分配角色成功')
       this.getUserList()
-    }}
+      this.distributeRolesVisible = false
+    },
+    clearRoledata() {
+      this.selectedRoleId = '';
+      this.usersInfo = {}
+    }
   }
 }
 </script>
